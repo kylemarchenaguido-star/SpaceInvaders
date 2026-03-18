@@ -12,6 +12,7 @@ project("SpaceInvaders")
 set(CMAKE_TOOLCHAIN_FILE "C:/Users/kyled/vcpkg/scripts/buildsystems/vcpkg.cmake")
 
 # Find packages first
+find_package(GLEW CONFIG REQUIRED)
 find_package(glfw3 CONFIG REQUIRED)
 find_package(glm CONFIG REQUIRED)
 
@@ -29,4 +30,5 @@ target_include_directories(main PRIVATE "Space Invaders/include")
 
 # Now link libraries AFTER the target exists
 target_link_libraries(main PRIVATE glfw glm::glm opengl32)
+target_link_libraries(main PRIVATE GLEW::GLEW)
 
