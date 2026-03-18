@@ -6,140 +6,6 @@
 using namespace std;
 
 
-// Handling error cases
-#define GL_ERROR_CASE(glerror)\
-    case glerror: snprintf(error, sizeof(error), "%s", #glerror)
-
-inline void gl_debug(const char* file, int line) {
-    GLenum err;
-    while ((err = glGetError()) != GL_NO_ERROR) {
-        char error[128];
-
-        switch (err) {
-            GL_ERROR_CASE(GL_INVALID_ENUM); break;
-            GL_ERROR_CASE(GL_INVALID_VALUE); break;
-            GL_ERROR_CASE(GL_INVALID_OPERATION); break;
-            GL_ERROR_CASE(GL_INVALID_FRAMEBUFFER_OPERATION); break;
-            GL_ERROR_CASE(GL_OUT_OF_MEMORY); break;
-        default: snprintf(error, sizeof(error), "%s", "UNKNOWN_ERROR"); break;
-        }
-
-        fprintf(stderr, "%s - %s: %d\n", error, file, line);
-    }
-}
-
-#undef GL_ERROR_CASE
-
-
-void error_callback(int error, const char* description)
-{
-	fprintf(stderr, "Error: %s\n", description);
-}
-
-struct Buffer {
-	size_t width, height;
-	uint32_t* data;
-};
-
-struct Sprite {
-    size_t width, height;
-    uint8_t* data;
-};
-
-
-uint32_t rgb_to_uint32 (uint8_t r, uint8_t g, uint8_t b)
-{
-	return (r << 24) | (g << 16) | (b << 8) | 255;
-}
-
-void buffer_clear(Buffer* buffer, uint32_t color)
-{
-	for (size_t i = 0; i < buffer->width * buffer->height; i++) {
-		buffer->data[i] = color;
-	}
-}
-
-void validate_shader(GLuint shader, const char* file = 0)
-{
-	static const unsigned int BUFFER_SIZE = 512;
-	char buffer[BUFFER_SIZE];
-	GLsizei length = 0;
-
-	glGetShaderInfoLog(shader, BUFFER_SIZE, &length, buffer);
-
-	if (length > 0)
-	{
-		printf("Shader %d(%s) compile error: %s\n",
-			shader, (file ? file : ""), buffer);
-	}
-}
-void buffer_sprite_draw(
-    Buffer* buffer, const Sprite& sprite,
-    size_t x, size_t y, uint32_t color
-) {
-    for (size_t xi = 0; xi < sprite.width; ++xi)
-    {
-        for (size_t yi = 0; yi < sprite.height; ++yi)
-        {
-            size_t sy = sprite.height - 1 + y - yi;
-            size_t sx = x + xi;
-            if (sprite.data[yi * sprite.width + xi] &&
-                sy < buffer->height && sx < buffer->width)
-            {
-                buffer->data[sy * buffer->width + sx] = color;
-            }
-        }
-    }
-}
-
-bool validate_program(GLuint program)
-{
-	static const GLsizei BUFFER_SIZE = 512;
-	GLchar buffer[BUFFER_SIZE];
-	GLsizei length = 0;
-
-	glGetProgramInfoLog(program, BUFFER_SIZE, &length, buffer);
-
-	if (length > 0)
-	{
-		printf("Program %d link error: %s\n", program, buffer);
-		return false;
-	}
-
-	return true;
-}
-
-const char* vertex_shader =
-"\n"
-"#version 330\n"
-"\n"
-"noperspective out vec2 TexCoord;\n"
-"\n"
-"void main(void){\n"
-"\n"
-"    TexCoord.x = (gl_VertexID == 2)? 2.0: 0.0;\n"
-"    TexCoord.y = (gl_VertexID == 1)? 2.0: 0.0;\n"
-"    \n"
-"    gl_Position = vec4(2.0 * TexCoord - 1.0, 0.0, 1.0);\n"
-"}\n"
-;
-
-
-const char* fragment_shader =
-"\n"
-"#version 330\n"
-"\n"
-"uniform sampler2D buffer;\n"
-"noperspective in vec2 TexCoord;\n"
-"\n"
-"out vec3 outColor;\n"
-"\n"
-"void main(void){\n"
-"    outColor = texture(buffer, TexCoord).rgb;\n"
-"}\n"
-;
-
-
 int main()
 {
     const size_t buffer_width = 224;
@@ -179,10 +45,12 @@ int main()
     printf("Renderer used: %s\n", glGetString(GL_RENDERER));
     printf("Shading Language: %s\n", glGetString(GL_SHADING_LANGUAGE_VERSION));
 
+    glfwSwapInterval(1);
 
     uint32_t clear_color = rgb_to_uint32(0, 128, 0);
 
     glClearColor(1.0, 0.0, 0.0, 1.0);
+
 
     // Create buffer
     Buffer buffer;
@@ -240,7 +108,6 @@ int main()
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
 
     //Open
-
     glDisable(GL_DEPTH_TEST);
     glBindVertexArray(fullscreen_triangle_vao);
 
@@ -248,7 +115,7 @@ int main()
     Sprite alien_sprite;
     alien_sprite.width = 11;
     alien_sprite.height = 8;
-    alien_sprite.data = new uint8_t[11 * 8]
+    alien_sprite.data = new uint8_t[88]
     {
         0,0,1,0,0,0,0,0,1,0,0,
         0,0,0,1,0,0,0,1,0,0,0,
@@ -260,26 +127,134 @@ int main()
         0,0,0,1,1,0,1,1,0,0,0
     };
 
+    Sprite alien_sprite1;
+    alien_sprite1.width = 11;
+    alien_sprite1.height = 8;
+    alien_sprite1.data = new uint8_t[88]
+    {
+        0,0,1,0,0,0,0,0,1,0,0, // ..@.....@..
+        1,0,0,1,0,0,0,1,0,0,1, // @..@...@..@
+        1,0,1,1,1,1,1,1,1,0,1, // @.@@@@@@@.@
+        1,1,1,0,1,1,1,0,1,1,1, // @@@.@@@.@@@
+        1,1,1,1,1,1,1,1,1,1,1, // @@@@@@@@@@@
+        0,1,1,1,1,1,1,1,1,1,0, // .@@@@@@@@@.
+        0,0,1,0,0,0,0,0,1,0,0, // ..@.....@..
+        0,1,0,0,0,0,0,0,0,1,0  // .@.......@.
+    };
+
+    SpriteAnimation* alien_animation = new SpriteAnimation;
+
+    alien_animation->loop = true;
+    alien_animation->num_frames = 2;
+    alien_animation->frame_duration = 10;
+    alien_animation->time = 0;
+
+    alien_animation->frames = new Sprite * [2];
+    alien_animation->frames[0] = &alien_sprite;
+    alien_animation->frames[1] = &alien_sprite1;
+
+
+    Sprite player_sprite;
+    player_sprite.width = 11;
+    player_sprite.height = 7;
+    player_sprite.data = new uint8_t[77]
+    {
+        0,0,0,0,0,1,0,0,0,0,0, 
+        0,0,0,0,1,1,1,0,0,0,0,
+        0,0,0,0,1,1,1,0,0,0,0, 
+        0,1,1,1,1,1,1,1,1,1,0, 
+        1,1,1,1,1,1,1,1,1,1,1, 
+        1,1,1,1,1,1,1,1,1,1,1, 
+        1,1,1,1,1,1,1,1,1,1,1, 
+    };
+
+    Game game;
+    game.width = buffer_width;
+    game.height = buffer_height;
+    game.num_aliens = 55;
+    game.aliens = new Alien[game.num_aliens];
+
+    game.player.x = 112 - 5;
+    game.player.y = 32;
+
+    game.player.life = 3;
+
+    for (size_t yi = 0; yi < 5; ++yi)
+    {
+        for (size_t xi = 0; xi < 11; ++xi)
+        {
+            game.aliens[yi * 11 + xi].x = 16 * xi + 20;
+            game.aliens[yi * 11 + xi].y = 17 * yi + 128;
+        }
+    }
 
     while (!glfwWindowShouldClose(window))
     {
-  
+		// Clear the CPU buffer 
         buffer_clear(&buffer, clear_color);
-        buffer_sprite_draw(&buffer, alien_sprite,112, 128, rgb_to_uint32(128, 0, 0));
 
+        for (size_t ai = 0; ai < game.num_aliens; ++ai)
+        {
+            const Alien& alien = game.aliens[ai];
+            buffer_draw_sprite(&buffer, alien_sprite,
+                alien.x, alien.y, rgb_to_uint32(128, 0, 0));
+        }
+
+        //Draws the player into the CPU buffer
+        buffer_draw_sprite(&buffer, player_sprite, game.player.x, game.player.y, rgb_to_uint32(128, 0, 0));
+
+		//Draws the aliens into the CPU buffer using the current animation frame
+        for (size_t ai = 0;  ai < game.num_aliens; ++ai)
+        {
+            const Alien& alien = game.aliens[ai];
+            size_t current_frame = alien_animation->time / alien_animation->frame_duration;
+            const Sprite& sprite = *alien_animation->frames[current_frame];
+            buffer_draw_sprite(&buffer, sprite, alien.x, alien.y, rgb_to_uint32(128, 0, 0));
+        }
+
+		//Update the animation time
+                                        /*Check if a full animation cycle has completed */
+        ++alien_animation->time;
+        if (alien_animation->time == alien_animation->num_frames * alien_animation->frame_duration)
+        {
+            if (alien_animation->loop) alien_animation->time = 0;
+            else
+            {
+                delete alien_animation;
+                alien_animation = nullptr;
+            }
+        }
+
+        // Upload the CPU buffer into the GPU
         glTexSubImage2D(
             GL_TEXTURE_2D, 0, 0, 0,
             buffer.width, buffer.height,
             GL_RGBA, GL_UNSIGNED_INT_8_8_8_8,
             buffer.data
         );
-
+        //Clears the openGL buffer
         glClear(GL_COLOR_BUFFER_BIT);
-  
+
+        //Samples the CPU buffer
         glDrawArrays(GL_TRIANGLES, 0, 3);
 
+		// Swaps the back buffer with the front buffer, and after the swaping the back buffer becomes the canvas and for the next swap
         glfwSwapBuffers(window);
 
+        if (game.player.x + player_sprite.width + player_move_dir >= game.width - 1)
+        {
+            game.player.x = game.width - player_sprite.width - player_move_dir - 1;
+            player_move_dir *= -1;
+        }
+        else if ((int)game.player.x + player_move_dir <= 0)
+        {
+            game.player.x = 0;
+            player_move_dir *= -1;
+        }
+        else game.player.x += player_move_dir;
+
+
+        // Prpces all pending events
         glfwPollEvents();
     }
 
