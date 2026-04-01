@@ -33,11 +33,11 @@ fullscreen triangle trick.
 - [x] Vertex and fragment shader setup
 - [x] Buffer uploaded to GPU as texture
 - [x] Alien sprite rendering
-- [ ] Player character
-- [ ] Input handling (movement, shooting)
-- [ ] Enemy movement and AI
-- [ ] Collision detection
-- [ ] Score system
+- [x] Player character
+- [x] Input handling (movement, shooting)
+- [x] Enemy movement and AI
+- [x] Collision detection
+- [x] Score system
 - [ ] Sound
 
 ---
